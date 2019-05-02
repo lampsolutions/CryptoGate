@@ -1,0 +1,13 @@
+version: '2'
+services:
+  cryptogate:
+      image: lampsolutions/cryptogate:1.0
+      build: ./
+      ports:
+        - 80:80
+      restart: always
+      env_file:
+        - .env
+      volumes:
+        - ./data:/data
+        - ./certs:/app/certs
