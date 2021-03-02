@@ -3,7 +3,7 @@
 @section('cp-header')
     <div class="cp-time cp-top-border cp-content">
         <div class="cp-spinner mdl-spinner mdl-js-spinner is-active"></div>
-        <span>Warte auf Zahlungseingang</span>
+        <span>@lang('Warte auf Zahlungseingang')</span>
         <span class="cp-countdown payment-countdown-timer"></span>
         <div id="expiration-progress-bar" class="cp-progress mdl-progress mdl-js-progress"></div>
     </div>
@@ -12,36 +12,19 @@
 @section('content')
 
     <div class="cp-tabs mdl-tabs mdl-js-tabs mdl-js-ripple-effect">
-        <!-- Tab Bars -->
-        <div class="mdl-tabs__tab-bar">
-            <a href="#qr-normal-panel" class="mdl-tabs__tab is-active">QR-Normal</a>
-            <a href="#qr-legacy-panel" class="mdl-tabs__tab">QR-Legacy</a>
-            <a href="#copy-panel" class="mdl-tabs__tab">Details</a>
-        </div>
-
-        <div class="mdl-tabs__panel is-active" id="qr-normal-panel">
-            <img style="display:block; margin: 0 auto; padding: 15px; max-width: 100%;" src="{{ $invoicePayment->getQRCodeDataUri() }}" />
-            <div class="cp-btn-wrapper">
-            <a href="{{ $invoicePayment->electrum_uri }}" class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect">
-                In Wallet Öffnen
-            </a>
-            </div>
-        </div>
-
-        <div class="mdl-tabs__panel" id="qr-legacy-panel">
-            <img style="display:block; margin: 0 auto; padding: 15px; max-width: 100%;" src="{{ $invoicePayment->getQRCodeDataUri($invoicePayment->getLegacyUri()) }}" />
-            <div class="cp-btn-wrapper">
-            <a href="{{ $invoicePayment->getLegacyUri() }}" class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect">
-                In Wallet Öffnen
-            </a>
-            </div>
-        </div>
-
-        <div class="mdl-tabs__panel" id="copy-panel">
+        <div class="mdl-tabs__panel is-active" id="copy-panel">
             <div class="cp-subheader-wrapper">
+                <div id="network-fees-text" class="cp-info-wrapper" style="padding: 10px;">
+                    <b><small>@lang('Bitte beachten Sie:')</small></b><br>
+                    <small>@lang('Bei der Bezahlung mit einer Kryptowähungen fallen zusätzlich zum Kaufbetrag noch Netzwerkgebühren an, die vom Käufer zu tragen sind.')</small>
+                </div>
+
+                <div id="qr-code" style="display:none;">
+                    <img style="display:block; margin: 0 auto; padding: 15px 0; width: 250px;" src="{{ $invoicePayment->getQRCodeDataUri() }}" />
+                </div>
 
                 <div class="cp-title cp-top-border cp-content" style="line-height: 30px;">
-                    <span class="cp-key">Betrag </span>
+                    <span class="cp-key">@lang('Betrag') </span>
                     <span class="cp-value">
                         {{ $invoicePayment->getFullCurrencyAmount() }} {{ $invoicePayment->currency }}
                         <button
@@ -51,15 +34,15 @@
                                 style="background: transparent !important; color: rgba(0,0,0,.54) !important;">
                                     <i class="material-icons">attach_file</i>
                         </button>
-                        <div data-copied-text="Kopiert!" data-default-text="Betrag in Zwischenablage kopieren" class="mdl-tooltip mdl-tooltip--left" for="amount-copy">
-                            Betrag in Zwischenablage kopieren
+                        <div data-copied-text="Kopiert!" data-default-text="@lang('Betrag in Zwischenablage kopieren')" class="mdl-tooltip mdl-tooltip--left" for="amount-copy">
+                            @lang('Betrag in Zwischenablage kopieren')
                         </div>
                     </span>
                 </div>
 
                 <div class="cp-title cp-top-border cp-content" style="line-height: 30px;">
-                    <span class="cp-key">Adresse</span>
-                    <span class="cp-value" style="font-size: 12px; line-height: 20px;">
+                    <span class="cp-key">@lang('Adresse')</span>
+                    <span class="cp-value" style="font-size: 10px; line-height: 20px;">
                         {{ $invoicePayment->electrum_address }}
                         <button
                                 id="addr-copy"
@@ -68,19 +51,23 @@
                                 style="background: transparent !important; color: rgba(0,0,0,.54) !important;">
                         <i class="material-icons">attach_file</i>
                     </button>
-                    <div data-copied-text="Kopiert!" data-default-text="Adresse in Zwischenablage kopieren" class="mdl-tooltip mdl-tooltip--left" for="addr-copy">
-                        Adresse in Zwischenablage kopieren
+                    <div data-copied-text="Kopiert!" data-default-text="@lang('Adresse in Zwischenablage kopieren')" class="mdl-tooltip mdl-tooltip--left" for="addr-copy">
+                        @lang('Adresse in Zwischenablage kopieren')
                     </div>
                     </span>
                 </div>
-
-                @if($invoicePayment->currency == 'BCH')
-                    <div class="cp-title cp-top-border cp-content" style="line-height: 30px;">
-                        <span class="cp-key">Legacy Adresse</span>
-                        <span class="cp-value" style="font-size: 12px; line-height: 20px;">{{ \App\Lib\CashAddress::new2old($invoicePayment->electrum_address,true) }}</span>
-                    </div>
-                @endif
             </div>
+
+            <div class="cp-btn-wrapper">
+                <a href="{{ $invoicePayment->electrum_uri }}" class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect">
+                    @lang('Wallet Öffnen')
+                </a>
+                <a id="toggle-qr" href="{{ $invoicePayment->electrum_uri }}" class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect">
+                    @lang('QR-Code Öffnen')
+                </a>
+            </div>
+
+
         </div>
 
     </div>
@@ -106,7 +93,7 @@
     @if($invoice->status!='Paid')
     <script type="text/javascript">
         window.setInterval(function() {
-            $.ajax('{{ route('payments.check', ['uuid' => $invoice->uuid ])  }}').done(function(result) {
+            $.ajax('{{ route('payments.check', ['uuid' => $invoice->uuid, 'paymentId' => $invoicePayment->electrum_id ])  }}').done(function(result) {
                 if(result.paid) {
                     window.location.reload();
                 }
@@ -119,6 +106,12 @@
         window.setTimeout(function() {
 
         }, milliseconds_left);
+
+        $('#toggle-qr').on('click', function() {
+            $('#qr-code').slideToggle("slow");
+            $('#network-fees-text').slideToggle("slow");
+            return false;
+        });
 
         window.setInterval(function() {
             milliseconds_left = milliseconds_left - 1000;
@@ -156,6 +149,7 @@
             }
             this.MaterialProgress.setProgress({{$invoicePayment->getExpirationProgressPercent()}});
         });
+
 
     </script>
     @endif

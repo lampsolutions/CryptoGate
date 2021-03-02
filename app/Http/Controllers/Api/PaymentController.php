@@ -5,20 +5,62 @@ namespace App\Http\Controllers\Api;
 use App\Facades\Electrum;
 use App\Http\Controllers\Controller;
 use App\Invoice;
+use App\InvoicePayment;
+use App\PaymentAddressAllocation;
 use Illuminate\Http\Request;
 
 abstract class PaymentController extends Controller
 {
     protected $endpoint="__abstract__";
 
+    /**
+     * Create a new controller instance.
+     *
+     * @return void
+     */
+    public function __construct()
+    {
+
+    }
+
     public function create(Request $request)
     {
+        if(!in_array(strtoupper($request->input('currency')), ['EUR', 'USD', 'CHF'])) {
+            throw new \Exception('Incorrect currency');
+        }
+
+        if(empty(env('ALLOW_OTHER_FIAT'))) {
+            $selectedFiatCurrency = env('FIAT_CURRENCY');
+            if(!empty($selectedFiatCurrency)) {
+                if($request->input('currency') != $selectedFiatCurrency) {
+                    throw new \Exception('Incorrect currency');
+                }
+            }
+        }
+
+        // Currency Handling
+        $enabled_currencies = Electrum::getEnabledCurrencies();
+        $selected_currencies = $request->input('selected_currencies');
+
+        if(!empty($selected_currencies) && !is_array($selected_currencies)) {
+            $selected_currencies = explode(',', $selected_currencies);
+        }
+
+        if(empty($selected_currencies)) $selected_currencies = $enabled_currencies;
+        if(is_array($selected_currencies)) {
+            $selected_currencies = array_map('strtoupper', $selected_currencies);
+            foreach($selected_currencies as $k => $c) {
+                if(!in_array($c, $enabled_currencies)) unset($selected_currencies[$k]);
+            }
+        }
 
         $invoice = new Invoice();
         $invoice->uuid = \Webpatser\Uuid\Uuid::generate();
         $invoice->amount = $request->input('amount');
-        $invoice->currency = $request->input('currency');
+        $invoice->currency = strtoupper($request->input('currency'));
+        $invoice->selected_currencies = implode(',', $selected_currencies);
         $invoice->memo = $request->input('memo');
+        $invoice->note = @$request->input('note');
         $invoice->seller_name = $request->input('seller_name');
         $invoice->first_name = $request->input('first_name');
         $invoice->last_name = $request->input('last_name');
@@ -26,27 +68,49 @@ abstract class PaymentController extends Controller
         $invoice->return_url = $request->input('return_url');
         $invoice->cancel_url = $request->input('cancel_url');
         $invoice->callback_url = $request->input('callback_url');
+        $invoice->ipn_url = $request->input('ipn_url');
         $invoice->extra_data = \json_encode($request->all());
         $invoice->endpoint = $this->endpoint;
+        $invoice->endpoint_version =
+            $request->input('plugin_version')
+                ? $request->input('plugin_version')
+                : "unknown";
+
 
         $invoice->save();
 
 
         return [
-            'payment_url' => route('payments.select', ['uuid' => $invoice->uuid] )
+            'payment_url' => route('payments.select', ['uuid' => $invoice->uuid] ),
+            'uuid' => (string)$invoice->uuid
         ];
     }
 
-    public function verify(Request $request)
-    {
+    public function verify(Request $request) {
         $uuid = $request->input('uuid');
 
+        /**
+         * @var $invoice Invoice
+         * @var $invoicePayment InvoicePayment
+         * @var $paymentAddressAllocation PaymentAddressAllocation
+         */
         $invoice = Invoice::where('uuid', $uuid)->firstOrFail();
+        $invoicePayment = $invoice->InvoicePayment()->first();
+        $inBlock = 0;
+        if($invoicePayment) {
+            $paymentAddressAllocation = $invoicePayment->paymentAddressAllocation();
+            if($paymentAddressAllocation) {
+                $inBlock = $paymentAddressAllocation->block;
+            }
+        }
+
         $extra_data = \json_decode($invoice->extra_data, true);
 
         return [
             'status' => $invoice->status,
-            'token' => $extra_data['token']
+            'inBlock' => $inBlock,
+            'token' => $extra_data['token'],
+            'uuid' => (string)$invoice->uuid
         ];
     }
 

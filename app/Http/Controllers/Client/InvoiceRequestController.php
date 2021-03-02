@@ -41,6 +41,7 @@ class InvoiceRequestController extends Controller {
         $data=$request->all();
         $data['Betrag'] = $invoiceRequest->amount;
         $data['title'] = $invoiceRequest->memo;
+        $data['currency'] = $invoiceRequest->currency;
         $data['return_url'] = $invoiceRequest->return_url;
 
         $redirect=$this->getPaymentUrl($data,$invoiceRequest->return_url);
@@ -55,7 +56,7 @@ class InvoiceRequestController extends Controller {
         /** @var CryptoGatePaymentService $service */
         $service = new CryptoGatePaymentService(
             env("API_TOKEN_MERCHANT"),
-            route('PaymentForm.create', [], false));
+            route('PaymentForm.create'));
         $payment_url = $service->createPaymentUrl(
             $data,
             $returnUrl,

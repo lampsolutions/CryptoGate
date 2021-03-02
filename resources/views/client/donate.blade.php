@@ -301,6 +301,11 @@
                 <label class="mdl-textfield__label" for="Telefon">Telefon (optional)</label>
             </div>
 
+            <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label">
+                <input class="mdl-textfield__input" type="text" name="Nachricht" id="Nachricht">
+                <label class="mdl-textfield__label" for="Nachricht">Hinterlasse eine Nachricht an uns (optional)</label>
+            </div>
+
             <hr/>
 
             @if($formal=="du")
@@ -309,8 +314,8 @@
                 <h6 style="margin: 0 0 10px; text-align: center;">Bitte wählen Sie den gewünschten Betrag aus</h6>
             @endif
 
-            <div class="slider-wrapper">
-                <input style="width: 80%;" class="mdl-slider mdl-js-slider" type="range" name="Betrag-slider" id="Betrag-slider"
+            <div class="slider-wrapper" style="margin-bottom: 20px;">
+                <input style="width: 78%;" class="mdl-slider mdl-js-slider" type="range" name="Betrag-slider" id="Betrag-slider"
                        min="0" max="1000" step="1" value="{{ $prefilled }}" tabindex="0">
 
                 <div class="slider-input mdl-textfield mdl-js-textfield mdl-textfield--floating-label">
@@ -328,9 +333,9 @@
                             padding-bottom: 20px;
                         }
                     </style>
-                    <input class="mdl-textfield__input" value="{{ $prefilled }}" type="number" id="Betrag" name="Betrag" min="0.01" max="10000.00" step="0.01" data-number-to-fixed="2" data-number-stepfactor="100" />
-                    <div style="position: absolute; right: -25px;" class="mdl-button--file">
-                        <i class="material-icons">euro_symbol</i>
+                    <input style="width: 65px;" class="mdl-textfield__input" value="{{ $prefilled }}" type="number" id="Betrag" name="Betrag" min="0.01" max="10000.00" step="0.01" data-number-to-fixed="2" data-number-stepfactor="100" />
+                    <div style="position: absolute; right: -25px; top: 13px; font-weight: bold;" class="mdl-button--file">
+                        {{ $global_fiat_currency }}
                     </div>
 
                 </div>
@@ -360,29 +365,12 @@
             slider.oninput = function() {
                 output.value = this.value;
             };
-
+            slider.onchange = function() {
+                output.value = this.value;
+            };
             output.oninput = function() {
                 slider.value = this.value;
             };
         </script>
-
-        <style type="text/css">
-            .donate-input-45 {
-                width: 48% !important;
-            }
-
-            .donate-sum-btn {
-                border: 1px solid #C4C3C3;
-                font-size: 1.5rem;
-                margin: 20px;
-                width: 25%;
-            }
-            .donate-sum-input {
-                width: 25% !important;
-            }
-            .donate-sum-go-btn {
-                width: 200px !important;
-            }
-        </style>
     </div>
 @endsection

@@ -31,9 +31,10 @@ class Electrum {
 
     public function getEnabledCurrencies() {
         $currencies = [];
-        foreach(['BTC', 'LTC', 'DASH', 'BCH'] as $c) {
+        foreach(['BTC', 'LTC', 'DASH', 'BCH', 'BTX'] as $c) {
             if(env($c.'_PUBKEY')) $currencies[] = $c;
         }
+
         return $currencies;
     }
 }

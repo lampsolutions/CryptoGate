@@ -1,0 +1,20 @@
+{
+    "Bitte wählen Sie eine Zahlungsmethode aus" : "Please select a payment method",
+    "Ihr Einkauf bei" : "Your purchase at",
+    "Betrag" : "Amount",
+    "Warte auf Zahlungseingang" : "Waiting for incoming payment",
+    "Wallet Öffnen" : "Open Wallet",
+    "QR-Code Öffnen" : "Display QR-Code",
+    "Betrag in Zwischenablage kopieren" : "Copy amount into clipboard",
+    "Adresse in Zwischenablage kopieren" : "Copy address into clipboard",
+    "Hinweis" : "Hint",
+    "Datenschutz" : "Privacy",
+    "Impressum" : "Legal notice",
+    "Bitte beachten Sie:" : "Please note:",
+    "Bei der Bezahlung mit einer Kryptowähungen fallen zusätzlich zum Kaufbetrag noch Netzwerkgebühren an, die vom Käufer zu tragen sind." : "When paying with a crypto currency, the network fees have to be additionally settled by the buyer in addition to the purchase amount.",
+    "Restbetrag" : "Remaining amount",
+    "Teilzahlung erkannt" : "Partial payment detected",
+    "Es wurde eine Teilzahlung erkannt." : "A partial payment was detected.",
+    "Bitte überweisen Sie den restlichen Betrag an die unten genannte Addresse." : "Please transfer the remaining amount to the address listed below.",
+    "Adresse": "Address"
+}

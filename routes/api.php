@@ -24,12 +24,15 @@ Route::get('/woocommerce/supported_currencies',['uses' => 'Api\WoocommerceContro
 Route::get('/woocommerce/list',['uses' => 'Api\WoocommerceController@list'])
     ->name('shopware.list');
 
+Route::get('/donateform/create',['uses' => 'Api\DonateFormController@create'])->name('donateform.create');
 Route::post('/donateform/create',['uses' => 'Api\DonateFormController@create'])->name('donateform.create');
 Route::post('/donateform/verify',['uses' => 'Api\DonateFormController@verify'])->name('donateform.verify');
 Route::get('/donateform/list',['uses' => 'Api\DonateFormController@list'])
     ->name('donateform.list');
 
 Route::post('/paymentform/create',['uses' => 'Api\PaymentFormController@create'])->name('PaymentForm.create');
+Route::post('/paymentform/verify',['uses' => 'Api\PaymentFormController@verify'])->name('PaymentForm.verify');
+
 
 
 

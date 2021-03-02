@@ -5,16 +5,12 @@ namespace App;
 use App\Facades\Electrum;
 use App\Lib\CashAddress;
 use Endroid\QrCode\ErrorCorrectionLevel;
-use Endroid\QrCode\LabelAlignment;
 use Endroid\QrCode\QrCode;
 use Graze\GuzzleHttp\JsonRpc\Client;
-use function GuzzleHttp\Psr7\build_query;
-use function GuzzleHttp\Psr7\parse_query;
 use Illuminate\Database\Eloquent\Model;
-use Mockery\Exception;
 
-class InvoicePayment extends Model
-{
+
+class InvoicePayment extends Model {
     protected $fillable = [
         'invoice_id',
         'uuid',
@@ -29,6 +25,26 @@ class InvoicePayment extends Model
 
     public function invoice() {
         return $this->belongsTo('App\Invoice');
+    }
+
+    public function paymentAddressAllocation() {
+        try {
+            return PaymentAddressAllocation::where('id', (string)$this->electrum_id)->firstOrFail();
+        } catch (\Exception $e) {
+            return false;
+        }
+    }
+
+    public function getReceivedSatoshiAmount() {
+        /** @var PaymentAddressAllocation $invoicePaymentAllocation */
+        $invoicePaymentAllocation = $this->paymentAddressAllocation();
+        return $invoicePaymentAllocation->received;
+    }
+
+    public function getPendingSatoshiAmount() {
+        /** @var PaymentAddressAllocation $invoicePaymentAllocation */
+        $invoicePaymentAllocation = $this->paymentAddressAllocation();
+        return $invoicePaymentAllocation->pending;
     }
 
     public function parse_query($str, $urlEncoding = true)
@@ -138,6 +154,10 @@ class InvoicePayment extends Model
         $qrCode->setLogoSize(128, 128);
 
         switch($this->currency) {
+            case 'BTX':
+                $qrCode->setLogoPath(__DIR__.'/../resources/img/btx.png');
+                $qrCode->setLogoSize(128, 128);
+                break;
             case 'BTC':
                 $qrCode->setLogoPath(__DIR__.'/../resources/img/btc.png');
                 break;
@@ -231,25 +251,29 @@ class InvoicePayment extends Model
     }
 
     public function createPaymentRequestOnElectrum() {
-        $expires_at = strtotime('+15 Minutes');
+        $expires_at = strtotime('+1440 Minutes');
 
         /** @var Client $client */
         $client = Electrum::client($this->currency);
 
         $invoice = $this->invoice()->firstOrFail();
 
-        $response = $client->send(
-            $client->request(sha1(microtime()), 'addrequest', [
-                'amount' => (string)$invoice->getExchange($invoice->amount, $this->currency, $invoice->currency)->amount,
-                'memo' => (string)$invoice->uuid,
-                'expiration' => $expires_at,
-                'force' => true
-            ])
-        );
+        try {
+            $response = $client->send(
+                $client->request(sha1(microtime()), 'addrequest', [
+                    'amount' => (string)$invoice->getExchange($invoice->amount, $this->currency, $invoice->currency)->amount,
+                    'memo' => (string)$invoice->uuid,
+                    'expiration' => $expires_at,
+                    'force' => true
+                ])
+            );
 
-        $error_code =$response->getRpcErrorCode();
+            $error_code =$response->getRpcErrorCode();
 
-        if(!is_null($error_code)) {
+            if(!is_null($error_code)) {
+                return false;
+            }
+        } catch (\Exception $e) {
             return false;
         }
 

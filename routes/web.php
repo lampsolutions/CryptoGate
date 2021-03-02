@@ -8,7 +8,7 @@ Route::get('/payments/{uuid}/',['uses' => 'Client\PaymentsController@select'])->
 Route::get('/payments/{uuid}/{currency}/paper/image/',['uses' => 'Client\PaymentsController@paper_image'])->name('payments.paper.image');
 Route::get('/payments/{uuid}/{currency}/paper/',['uses' => 'Client\PaymentsController@paper_bip70_handler'])->name('payments.paper');
 
-Route::get('/payments/{uuid}/checkPayment/',['uses' => 'Client\PaymentsController@checkPayment'])->name('payments.check');
+Route::get('/payments/{uuid}/checkPayment/{paymentId?}',['uses' => 'Client\PaymentsController@checkPayment'])->name('payments.check');
 Route::get('/payments/{uuid}/{currency}/',['uses' => 'Client\PaymentsController@index'])->name('payments.pay');
 
 Route::get('/',['uses' => 'DefaultController@index']);

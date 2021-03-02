@@ -1,4 +1,4 @@
-<style type="text/css">
+<style>
     .cp-header-wrapper {
         @if(empty($branding['branding_primary_color']))
             background-color: #eee !important;

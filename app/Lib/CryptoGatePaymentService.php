@@ -15,6 +15,17 @@ class CryptoGatePaymentService {
         $this->apiUrl=$pApiUrl;
     }
 
+
+
+    /**
+     * @param PaymentResponse $response
+     * @param string $token
+     * @return bool
+     */
+    public function isValidToken(PaymentResponse $response, $token)
+    {
+        return hash_equals($token, $response->token);
+    }
     /**
      * @param array $payment_data
      * @return string
@@ -29,7 +40,9 @@ class CryptoGatePaymentService {
         $parameters['token'] = $this->createPaymentToken($order);
         $parameters['api_key'] = $this->apiKey;
         $parameters["amount"] = $order["Betrag"];
-        $parameters["currency"] = "EUR";
+
+        $cgFiat = new CryptoGateFiat();
+        $parameters["currency"] = empty($order['currency']) ? $cgFiat->getFiatCurrency() : $order['currency'];
 
 
         if(empty($order['title'])) $order['title'] = env("COMPANY");
@@ -50,12 +63,13 @@ class CryptoGatePaymentService {
         $parameters["Ort"] = isset($order["Ort"]) ? $order["Ort"] : "";
         $parameters["Land"] = isset($order["Land"]) ? $order["Land"] : "";
         $parameters["Telefon"] = isset($order["Telefon"]) ? $order["Telefon"] : "";
+        $parameters["Nachricht"] = isset($order["Nachricht"]) ? $order["Nachricht"] : "";
 
-        $ch = curl_init('http://localhost/'.$this->apiUrl);
+        $ch = curl_init($this->apiUrl);
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
         curl_setopt($ch, CURLOPT_POSTFIELDS, $parameters);
-        curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 5);
-        curl_setopt($ch, CURLOPT_TIMEOUT, 5);
+        curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 15);
+        curl_setopt($ch, CURLOPT_TIMEOUT, 15);
 
         $response = $response = curl_exec($ch);
 
@@ -72,7 +86,7 @@ class CryptoGatePaymentService {
 
         $parameters['api_key'] = $this->apiKey;
 
-        $ch = curl_init('http://localhost/'.$this->apiUrl."/verify");
+        $ch = curl_init($this->apiUrl."/verify");
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
         curl_setopt($ch, CURLOPT_POSTFIELDS, $parameters);
 

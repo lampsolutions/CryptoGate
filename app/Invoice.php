@@ -2,6 +2,8 @@
 
 namespace App;
 
+use App\Facades\Electrum;
+use App\Jobs\ProcessPaymentCallback;
 use App\Mail\DonationConfirm;
 use Endroid\QrCode\ErrorCorrectionLevel;
 use Endroid\QrCode\QrCode;
@@ -9,10 +11,8 @@ use GuzzleHttp\Client;
 use GuzzleHttp\RequestOptions;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Mail;
-use Mockery\Exception;
 
-class Invoice extends Model
-{
+class Invoice extends Model {
     protected $fillable = [
         'uuid',
         'status',
@@ -24,6 +24,7 @@ class Invoice extends Model
         'seller_name',
         'amount',
         'currency',
+        'selected_currencies',
         'return_url',
         'cancel_url',
         'callback_url',
@@ -32,38 +33,47 @@ class Invoice extends Model
         'optin_timestamp'
     ];
 
+
+    public function setAsPendingTxByPayment(InvoicePayment $invoicePayment) {
+        $this->handleStateChange($invoicePayment, 'Open');
+        dispatch(new ProcessPaymentCallback($this, 'TxPartialCb'));
+    }
+
     public function setAsPaidByPayment(InvoicePayment $invoicePayment) {
         if($this->status == 'Paid') return true;
+        $this->handleStateChange($invoicePayment, 'Paid');
+        dispatch(new ProcessPaymentCallback($this, 'TxPaidCb'));
+        dispatch(new ProcessPaymentCallback($this, 'TxPaidUserCb'))->delay(now()->addSeconds(30));
+        $this->handleIpnCallbacks();
+    }
 
-        $this->status = 'Paid';
+    public function setAsOverpaidByPayment(InvoicePayment $invoicePayment) {
+        if($this->status == 'Paid') return true;
+        $this->handleStateChange($invoicePayment, 'Paid');
+        dispatch(new ProcessPaymentCallback($this, 'TxOverpaidCb'));
+        dispatch(new ProcessPaymentCallback($this, 'TxPaidUserCb'))->delay(now()->addSeconds(30));
+        $this->handleIpnCallbacks();
+    }
+
+    public function handleIpnCallbacks() {
+        if(empty($this->ipn_url)) return;
+
+        ProcessPaymentCallback::dispatch($this, 'IPNUserCb')->delay(now()->addSeconds(30));
+        ProcessPaymentCallback::dispatch($this, 'IPNUserCb')->delay(now()->addHours(2));
+        ProcessPaymentCallback::dispatch($this, 'IPNUserCb')->delay(now()->addHours(4));
+        ProcessPaymentCallback::dispatch($this, 'IPNUserCb')->delay(now()->addHours(8));
+        ProcessPaymentCallback::dispatch($this, 'IPNUserCb')->delay(now()->addHours(24));
+    }
+
+    protected function handleStateChange(InvoicePayment $invoicePayment, $status='Open') {
+        $this->status = $status;
         $this->payment_id = $invoicePayment->id;
         $this->save();
         $this->refresh();
-
-        $this->PaymentDoneCallback();
-        $this->sendCallback();
     }
 
-    public function sendCallback(){
-        if(empty($this->callback_url)) return false;
-
-
-        if (!filter_var($this->callback_url, FILTER_VALIDATE_URL)) {
-            return false;
-        }
-
-        $callbackUrl=$this->getCallbackUrl();
-
-        try {
-            $client = new Client();
-            $client->post($callbackUrl, [
-                RequestOptions::JSON => $this
-            ]);
-            return true;
-        }catch (\Exception $e) {
-            var_dump($e->getMessage());
-        }
-        return false;
+    public function getFiatCurrency() {
+        return $this->currency;
     }
 
     public function sendConfirmation(){
@@ -72,47 +82,48 @@ class Invoice extends Model
         }
     }
 
-    public function PaymentDoneCallback() {
-        $uri=env('CALLBACK_TX_DONE');
-        if(empty($uri)) return false;
-
-        try {
-            $client = new Client();
-            $client->post($uri, [
-                RequestOptions::JSON => $this
-            ]);
-            return true;
-        }catch (\Exception $e) {
-            var_dump($e->getMessage());
-        }
-        return false;
-    }
-
-    public function PaymentDoiCallback($ip) {
-        $uri=env('CALLBACK_DOI');
-        if(empty($uri)) return false;
-
-        $this->dioIp=$ip;
-
-        try {
-            $client = new Client();
-            $client->post($uri, [
-                RequestOptions::JSON => $this
-            ]);
-            return true;
-        }catch (\Exception $e) {
-            var_dump($e->getMessage());
-        }
-        return false;
-    }
-
     public function InvoicePayment() {
         return $this->belongsTo('App\InvoicePayment', 'payment_id', 'id');
     }
 
-    public function getExchange($amount, $destination, $origin='EUR') {
-        $response = @file_get_contents(env('PRICE_EXCHANGE_API')."/api/v1/calculate-exchange?amount=$amount&origin=$origin&destination=$destination&api=coinmarketcap.com");
+    public function getBestExchange($amount, $destination, $origin='EUR') {
+        $response = @file_get_contents(env('PRICE_EXCHANGE_API')."/api/v1/calculate-best-exchange?amount=$amount&origin=$origin&destination=$destination");
         $result = \json_decode($response);
+        return $result;
+    }
+
+    public function getExchange($amount, $destination, $origin='EUR') {
+        if(!empty(env('ENABLE_BEST_PRICE_API'))) {
+            return $this->getBestExchange($amount, $destination, $origin);
+        }
+
+        // Handle Custom Apis
+        $api = 'coinmarketcap.com';
+        try {
+            if(!empty(env('CUSTOM_FIAT'))) {
+                $api = env($destination . '_EXCHANGE_SOURCE');
+                if ($origin == 'USD' || $origin == 'CHF') {
+                    $api = env($destination . '_EXCHANGE_SOURCE_' . $origin);
+                }
+
+                if (empty($api)) {
+                    $api = 'coinmarketcap.com';
+                }
+            }
+        } catch (\Exception $e) {
+            $api = 'coinmarketcap.com';
+        }
+
+        $response = @file_get_contents(env('PRICE_EXCHANGE_API')."/api/v1/calculate-exchange?amount=$amount&origin=$origin&destination=$destination&api=$api");
+        $result = \json_decode($response);
+
+        // In case of error use coinmarketcap.com as fallback
+        if(empty($result)) {
+            $api = 'coinmarketcap.com';
+            $response = @file_get_contents(env('PRICE_EXCHANGE_API')."/api/v1/calculate-exchange?amount=$amount&origin=$origin&destination=$destination&api=$api");
+            $result = \json_decode($response);
+        }
+
         return $result;
     }
 
@@ -120,6 +131,9 @@ class Invoice extends Model
         $bip70_prefix='bitcoin:?r=';
 
         switch($currency) {
+            case 'BTX':
+                $bip70_prefix='bitcore:?r=';
+                break;
             case 'BTC':
                 $bip70_prefix='bitcoin:?r=';
                 break;
@@ -164,13 +178,16 @@ class Invoice extends Model
             $invoicePayment->uuid = \Webpatser\Uuid\Uuid::generate()->string;
             $invoicePayment->currency = $currency;
 
-            $invoicePayment->createPaymentRequestOnElectrum();
-
-            $invoicePayment->save();
+            if($invoicePayment->createPaymentRequestOnElectrum()) {
+                $invoicePayment->save();
+                return $invoicePayment;
+            } else {
+                return false;
+            }
 
         }
 
-        if($invoicePayment) return $invoicePayment;
+        return $invoicePayment;
     }
 
 
@@ -180,6 +197,10 @@ class Invoice extends Model
         $qrCode->setLogoSize(128, 128);
 
         switch($currency) {
+            case 'BTX':
+                $qrCode->setLogoPath(__DIR__.'/../resources/img/btx.png');
+                $qrCode->setLogoSize(128, 128);
+                break;
             case 'BTC':
                 $qrCode->setLogoPath(__DIR__.'/../resources/img/btc.png');
                 break;
@@ -207,6 +228,9 @@ class Invoice extends Model
 
     public function getBIP70ContentTypeHeader($currency) {
         switch($currency) {
+            case 'BTX':
+                return 'application/bitcore-paymentrequest';
+                break;
             case 'BTC':
                 return 'application/bitcoin-paymentrequest';
                 break;
@@ -244,40 +268,27 @@ class Invoice extends Model
         return $data;
     }
 
-    private function getCallbackUrl() {
-        $parsed_url=parse_url($this->callback_url);
-        $params=[];
-        @parse_str(@$parsed_url['query'],$params);
-        $extra_data = \json_decode($this->extra_data, true);
+    public function getCurrencies() {
+        $enabled_currencies = Electrum::getEnabledCurrencies();
+        $selected_currencies = $this->selected_currencies;
+        if(empty($selected_currencies)) return $enabled_currencies; // Backwards compatibility
+        $selected_currencies = explode(",", $selected_currencies);
 
-        if(!empty($params["uuid"])){
-            abort(409, 'uuid is not a valid query param for return url .');
+        if(is_array($selected_currencies)) {
+            $selected_currencies = array_map('strtoupper', $selected_currencies);
+            foreach($selected_currencies as $k => $c) {
+                if(!in_array($c, $enabled_currencies)) unset($selected_currencies[$k]);
+            }
         }
-        if(!empty($params["token"])){
-            abort(409, 'token is not a valid query param for return url .');
-
-        }
-        if(!empty($params["status"])){
-            abort(409, 'status is not a valid query param for return url .');
+        $selected_currencies = array_values($selected_currencies);
+        if(empty($selected_currencies)) {
+            return $enabled_currencies;
         }
 
+        return $selected_currencies;
+    }
 
-        //add extra data from invoice
-        $params["uuid"]=$this->uuid;
-        $params["token"]=$extra_data['token'];
-        $params["status"]="Paid";
-        $parsed_url['query']=http_build_query($params);
-
-        $scheme   = isset($parsed_url['scheme']) ? $parsed_url['scheme'] . '://' : '';
-        $host     = isset($parsed_url['host']) ? $parsed_url['host'] : '';
-        $port     = isset($parsed_url['port']) ? ':' . $parsed_url['port'] : '';
-        $user     = isset($parsed_url['user']) ? $parsed_url['user'] : '';
-        $pass     = isset($parsed_url['pass']) ? ':' . $parsed_url['pass']  : '';
-        $pass     = ($user || $pass) ? "$pass@" : '';
-        $path     = isset($parsed_url['path']) ? $parsed_url['path'] : '';
-        $query    = isset($parsed_url['query']) ? '?' . $parsed_url['query'] : '';
-        $fragment = isset($parsed_url['fragment']) ? '#' . $parsed_url['fragment'] : '';
-
-        return "$scheme$user$pass$host$port$path$query$fragment";
+    public function isCurrencyEnabled($currency) {
+        return in_array($currency, $this->getCurrencies());
     }
 }

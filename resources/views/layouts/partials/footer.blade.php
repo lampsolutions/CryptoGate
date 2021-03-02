@@ -3,12 +3,12 @@
         <div class="mdl-mini-footer--left-section" style="margin: 0 auto;">
             <ul class="mdl-mini-footer--link-list">
                 @if(!empty(Cache::get('agb')))
-                    <li><a href="/agb">AGB</a></li>
+                    <li><a target="_blank" href="/agb">AGB</a></li>
                 @endif
 
-                <li><a href="/datenschutz">Datenschutz</a></li>
+                <li><a target="_blank" href="/datenschutz">@lang('Datenschutz')</a></li>
 
-                <li><a href="/impressum">Impressum</a></li>
+                <li><a target="_blank" href="/impressum">@lang('Impressum')</a></li>
 
             </ul>
             <div class="mdl-mini-footer--link-list" style="display: block !important; text-align: center; font-size:14px;">

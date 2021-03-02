@@ -1,13 +1,31 @@
-version: '2'
+version: '3.7'
+
+volumes:
+  data:
+
 services:
+  mysql:
+    image: mysql:8.0
+    command: --default-authentication-plugin=mysql_native_password
+    environment:
+      MYSQL_ROOT_PASSWORD: dockerstate8314
+      MYSQL_DATABASE: cryptogate
+      MYSQL_USER: cryptogate
+      MYSQL_PASSWORD: cryptogate87123
   cryptogate:
-      image: lampsolutions/cryptogate:1.0
-      build: ./
-      ports:
-        - 80:80
-      restart: always
-      env_file:
-        - .env
-      volumes:
-        - ./data:/data
-        - ./certs:/app/certs
+    image: cryptopanel/cryptogate:2
+    volumes:
+      - data:/data
+      - ./app:/app/app
+      - ./bootstrap/:/app/bootstrap
+      - ./config/:/app/config
+      - ./database/:/app/database
+      - ./public/:/app/public
+      - ./resources/:/app/resources
+      - ./routes/:/app/routes
+      - ./tests/:/app/tests
+    env_file:
+      - .env_docker
+    build: .
+    ports:
+      - 127.0.0.1:80:80

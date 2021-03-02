@@ -24,6 +24,6 @@ class DefaultController extends Controller
      */
     public function index()
     {
-        return view('default', ['title' => 'CryptoGate 1.0']);
+        return view('default', ['title' => 'CryptoGate 2.0']);
     }
 }

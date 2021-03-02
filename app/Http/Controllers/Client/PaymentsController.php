@@ -5,14 +5,14 @@ namespace App\Http\Controllers\Client;
 use App\Http\Controllers\Controller;
 use App\Invoice;
 use App\InvoiceCurrency;
+use App\PaymentAddressAllocation;
 use Auth;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 use Ramsey\Uuid\Uuid;
 use Redirect;
 
-class PaymentsController extends Controller
-{
+class PaymentsController extends Controller {
     protected $rules = [
         'first_name'          => 'max:60',
         'last_name'          => 'max:60',
@@ -24,9 +24,26 @@ class PaymentsController extends Controller
      *
      * @return void
      */
-    public function __construct()
-    {
+
+    public function __construct() {
+       // $this->middleware('SetLocale');
         //$this->middleware('guest');
+    }
+
+    private function forwardQueryParam() {
+        $queryParams = [];
+
+        if(isset($_GET['language'])) {
+            $queryParams['language'] = $_GET['language'];
+        }
+
+        if(isset($_GET['iframe'])) {
+            $queryParams['iframe'] = $_GET['iframe'];
+        }
+
+        if(count($queryParams) == 0) return '';
+
+        return '?'.http_build_query($queryParams);
     }
 
     /**
@@ -34,8 +51,7 @@ class PaymentsController extends Controller
      *
      * @return \Illuminate\Http\Response
      */
-    public function index(Request $request, $uuid, $currency)
-    {
+    public function index(Request $request, $uuid, $currency) {
         /**
          * @var Invoice $invoice
          */
@@ -43,8 +59,46 @@ class PaymentsController extends Controller
         $currency = strtoupper($currency);
         $invoicePayment = $invoice->payment($currency);
 
+        if(!$invoicePayment) {
+            return view('client.select', [
+                'invoice' => $invoice,
+                'title' => $invoice->memo
+            ]);
+        }
+
+        // Partial Payments
+        try {
+            /**
+             * @var $invoicePaymentAllocation PaymentAddressAllocation
+             */
+            $invoicePaymentAllocation = $invoicePayment->paymentAddressAllocation();
+            if($invoicePaymentAllocation->status == PaymentAddressAllocation::PAYMENT_STATUS_PARTIAL_PAYMENT) {
+                $pendingSatoshis = $invoicePayment->getPendingSatoshiAmount();
+                $receivedSatoshis = $invoicePayment->getReceivedSatoshiAmount();
+
+                return view('client.pay_partial', [
+                    'URI' => $invoicePaymentAllocation->buildPaymentUri($pendingSatoshis),
+                    'pending' => $invoicePaymentAllocation->to_bitcoin($pendingSatoshis),
+                    'sent' => $invoicePaymentAllocation->to_bitcoin($receivedSatoshis),
+                    'invoice' => $invoice,
+                    'invoicePayment' => $invoicePayment,
+                    'legacy' => !empty($request->get('legacy')),
+                    'title' => $invoice->memo,
+                    'forwardQueryParam' => $this->forwardQueryParam()
+                ]);
+            }
+
+        } catch (\Exception $e) {
+
+        }
+
         if($invoice->status == 'Paid') {
             if(!empty($invoice->return_url)) {
+                if(isset($_GET['iframe'])) {
+                    return view('client.iframe_redirect', [
+                        'return_url' => $this->getReturnUrl($invoice)
+                    ]);
+                }
                 return redirect(
                     $this->getReturnUrl($invoice)
                 );
@@ -52,7 +106,16 @@ class PaymentsController extends Controller
 
             return view('client.paid', [
                 'invoice' => $invoice,
-                'title' => $invoice->memo
+                'title' => $invoice->memo,
+                'forwardQueryParam' => $this->forwardQueryParam()
+            ]);
+        }
+
+        if(!$invoice->isCurrencyEnabled($currency)) {
+            return view('client.select', [
+                'invoice' => $invoice,
+                'title' => $invoice->memo,
+                'forwardQueryParam' => $this->forwardQueryParam()
             ]);
         }
 
@@ -60,7 +123,8 @@ class PaymentsController extends Controller
             'invoice' => $invoice,
             'invoicePayment' => $invoicePayment,
             'legacy' => !empty($request->get('legacy')),
-            'title' => $invoice->memo
+            'title' => $invoice->memo,
+            'forwardQueryParam' => $this->forwardQueryParam()
         ]);
     }
 
@@ -74,18 +138,24 @@ class PaymentsController extends Controller
         /**
          * @var Invoice $invoice
          */
+
+
         $invoice = Invoice::where('uuid', $uuid)->firstOrFail();
 
         if($invoice->status == 'Paid') {
+
+
             return view('client.paid', [
                 'invoice' => $invoice,
-                'title' => $invoice->memo
+                'title' => $invoice->memo,
+                'forwardQueryParam' => $this->forwardQueryParam()
             ]);
         }
 
         return view('client.select', [
             'invoice' => $invoice,
-            'title' => $invoice->memo
+            'title' => $invoice->memo,
+            'forwardQueryParam' => $this->forwardQueryParam()
         ]);
     }
 
@@ -116,12 +186,22 @@ class PaymentsController extends Controller
     }
 
 
-    public function checkPayment(Request $request, $uuid)
+    public function checkPayment(Request $request, $uuid, $paymentId)
     {
         /**
          * @var Invoice $invoice
          */
         $invoice = Invoice::where('uuid', $uuid)->firstOrFail();
+        try {
+            $paymentAddressAllocation = PaymentAddressAllocation::where('id', $paymentId)->firstOrFail();
+            if($paymentAddressAllocation->status == PaymentAddressAllocation::PAYMENT_STATUS_PARTIAL_PAYMENT) {
+                return [
+                    'paid' => 'partial'
+                ];
+            }
+        } catch (\Exception $e) {
+
+        }
 
         return [
             'paid' => $invoice->status == 'Paid'

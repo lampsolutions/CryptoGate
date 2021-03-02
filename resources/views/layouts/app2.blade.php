@@ -10,7 +10,9 @@
         {!! HTML::style(asset('css/mdl-themes/material.min.css'), ['type' => 'text/css', 'rel' => 'stylesheet']) !!}
         {!! HTML::style('/roboto.css', ['type' => 'text/css', 'rel' => 'stylesheet']) !!}
         {!! HTML::style(asset('/material.css'), ['type' => 'text/css', 'rel' => 'stylesheet']) !!}
-        <script type="text/javascript">window.CSRF_Token = {!! json_encode(['csrfToken' => csrf_token(),]) !!};</script>
+
+
+
         @yield('template_linked_fonts')
         @yield('template_linked_css')
         @yield('head')
@@ -37,12 +39,31 @@
                                 <span class="cp-title-text">{{@$title}}</span>
                             </div>
 
-                            @if(!empty($invoice))
+                            @if(isset($invoicePayment) and !empty($invoicePayment))
+
                                 <div class="cp-title cp-top-border cp-content">
-                                    <span class="cp-key">Betrag</span>
-                                    <span class="cp-value">{{ $invoice->getFormattedAmount() }} EUR</span>
+                                    <span class="cp-key">@lang('Betrag')</span>
+                                    <span class="cp-value">{{ $invoicePayment->getFullCurrencyAmount() }} {{ $invoicePayment->currency }}</span>
                                 </div>
+                                @if(!empty($invoice->note))
+                                    <div class="cp-title cp-top-border cp-content">
+                                        <span class="cp-key">@lang('Hinweis')</span>
+                                        <span class="cp-value">{{ $invoice->note }}</span>
+                                    </div>
+                                @endif
+                            @elseif(!empty($invoice))
+                                <div class="cp-title cp-top-border cp-content">
+                                    <span class="cp-key">@lang('Betrag')</span>
+                                    <span class="cp-value">{{ $invoice->getFormattedAmount() }} {{ $invoice->getFiatCurrency() }}</span>
+                                </div>
+                                @if(!empty($invoice->note))
+                                    <div class="cp-title cp-top-border cp-content">
+                                        <span class="cp-key">@lang('Hinweis')</span>
+                                        <span class="cp-value">{{ $invoice->note }}</span>
+                                    </div>
+                                @endif
                             @endif
+
 
                             @yield('cp-header')
                         </div>
@@ -65,119 +86,10 @@
 
         {!! HTML::script(asset('/js/jquery.min.js')) !!}
         {!! HTML::script(asset('/js/material.min.js')) !!}
+        {!! HTML::script(asset('/js/textfield.js')) !!}
 
         @yield('footer_scripts')
 
-        <style type="text/css">
-            .mdl-tabs__tab-bar  {
-                justify-content: flex-start !important;
-            }
-
-            .mdl-tabs__tab {
-                width: 100%;
-            }
-
-            .cp-key {
-                font-size: 14px;
-            }
-            .cp-value {
-                font-size: 14px;
-                float: right;
-            }
-            body {
-                font-family: Roboto;
-                font-weight: 300;
-                font-size: 16px;
-            }
-            .cp-spinner {
-                width: 14px;
-                height: 14px;
-            }
-            .cp-spinner .mdl-spinner__circle {
-                border-width: 1px;
-            }
-            .cp-countdown {
-                float: right;
-            }
-            .cp-content {
-                padding: 8px;
-            }
-            .cp-top-border {
-                border-top: 1px solid rgba(0,0,0,.1);
-            }
-            .cp-progress {
-                width:100%;
-                min-height:5px;
-            }
-            .cp-header-wrapper {
-                width: 100%;
-
-                box-shadow: 0 2px 2px 0 rgba(0,0,0,.14), 0 3px 1px -2px rgba(0,0,0,.2), 0 1px 5px 0 rgba(0,0,0,.12);
-                transition-duration: .2s;
-                transition-timing-function: cubic-bezier(.4,0,.2,1);
-                transition-property: max-height,box-shadow;
-            }
-            .cp-subheader-wrapper {
-                width: 100%;
-                margin-bottom: 5px;
-            }
-            span.cp-seller-text {
-                font-size: 22px;
-            }
-            .cp-container {
-                padding: 0;
-                max-width: 400px;
-                min-height:300px;
-                margin: 15px auto 0px auto;
-            }
-            .cp-seller {
-                padding: 24px 8px;
-            }
-            .cp-time {
-                font-weight: 300;
-            }
-            .cp-title {
-                font-weight:500;
-            }
-            .cp-seller-logo {
-                max-width: 80%;
-            }
-
-            .mdl-textfield {
-                width: 500px;
-            }
-
-            input[type=number] {
-                text-align:right;
-            }
-            .cp-btn-wrapper {
-                text-align: center;
-                padding-bottom: 20px;
-            }
-            .cp-btn-wrapper a {
-                width:200px;
-            }
-
-
-            /** Textfields height **/
-            .mdl-textfield {
-                padding: 10px 0 !important;
-            }
-
-            .mdl-textfield__label {
-                top: 12px !important;
-            }
-
-            .mdl-textfield__label:after {
-                bottom: 10px;
-            }
-
-            .mdl-textfield--floating-label.is-focused .mdl-textfield__label, .mdl-textfield--floating-label.is-dirty .mdl-textfield__label, .mdl-textfield--floating-label.has-placeholder .mdl-textfield__label {
-                top: 0px !important;
-            }
-
-        </style>
+        {!! HTML::script(asset('/js/iframeResizer.contentWindow.min.js')) !!}
     </body>
-
-    {!! HTML::script(asset('/js/iframeResizer.contentWindow.min.js')) !!}
 </html>

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Invoice;
+use App\Jobs\ProcessPaymentCallback;
 use App\Lib\CryptoGatePaymentService;
 use App\Mail\DonationConfirm;
 use Illuminate\Support\Facades\Mail;
@@ -83,7 +84,7 @@ abstract class AbstractDonationController extends Controller
         /** @var CryptoGatePaymentService $service */
         $service = new CryptoGatePaymentService(
             env("API_TOKEN_MERCHANT"),
-            route('donateform.create', [], false));
+            route('donateform.create'));
         $payment_url = $service->createPaymentUrl(
             $donation,
             $returnUrl,
@@ -100,8 +101,8 @@ abstract class AbstractDonationController extends Controller
         $invoice->ip=Request::ip();
         $invoice->optin_timestamp=date("Y-m-d H:i:s");
         $invoice->save();
-        $invoice->PaymentDoiCallback(Request::ip());
 
+        dispatch(new ProcessPaymentCallback($invoice, 'TxDoiCb', Request::ip()));
         return redirect (route("payments.select",["uuid" => $uuid]));
 
     }

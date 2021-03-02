@@ -10,7 +10,6 @@
 |
 */
 Route::get('/balance',['uses' => 'AdminApi\ElectrumController@balance'])->name('admin.api.electrum.balance');
-Route::get('/listaddresses',['uses' => 'AdminApi\ElectrumController@listaddresses'])->name('admin.api.electrum.listaddresses');
 Route::get('/listtransactions',['uses' => 'AdminApi\TransactionsController@listtransactions'])->name('admin.api.electrum.listtransactions');
 
 Route::get('/listrequests',['uses' => 'AdminApi\InvoiceRequestsController@list'])->name('admin.api.invoice.requests.list');

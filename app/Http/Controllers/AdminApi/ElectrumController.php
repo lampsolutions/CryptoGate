@@ -5,42 +5,45 @@ namespace App\Http\Controllers\AdminApi;
 use App\Facades\Electrum;
 use App\Http\Controllers\Controller;
 use App\Invoice;
+use App\Wallet;
 use Graze\GuzzleHttp\JsonRpc\Client;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
-class ElectrumController extends Controller
-{
+class ElectrumController extends Controller {
 
-    public function balance(Request $request)
-    {
-        $r = [];
-        foreach(Electrum::getEnabledCurrencies() as $c) {
-            /** @var Client $client */
-            $client = Electrum::client($c);
-            $response = $client->send($client->request(sha1(microtime()), 'getbalance', [] ));
-            $r[$c]=$response->getRpcResult();
+    public function balance(Request $request) {
+
+        //DB::enableQueryLog();
+        $balances = DB::table('addresses')
+            ->select('wallet_id', DB::raw('SUM(confirmed) as total_confirmed, SUM(unconfirmed) as total_unconfirmed'))
+            ->groupBy('wallet_id')->get();
+
+
+        $result = [];
+
+        foreach($balances as $balance) {
+            /**
+             * @var Wallet $wallet
+             */
+            $wallet = Wallet::where('id', $balance->wallet_id)->firstOrFail();
+
+            $result[$wallet->coin] = [
+                "confirmed" => $this->to_bitcoin($balance->total_confirmed),
+            ];
+
+            if(!empty($balance->total_unconfirmed)) {
+                $result[$wallet->coin]["unconfirmed"] = $this->to_bitcoin($balance->total_unconfirmed);
+            }
+
+
         }
-        return $r;
+        return $result;
     }
 
-
-    public function listaddresses(Request $request)
-    {
-        $r = [];
-        $query = [];
-
-        foreach(['receiving', 'change', 'labels', 'frozen', 'unused', 'funded', 'balance'] as $k) {
-            if(!empty($request->get($k))) $query[$k] = (bool) $request->get($k);
-        }
-
-        foreach(Electrum::getEnabledCurrencies() as $c) {
-            /** @var Client $client */
-            $client = Electrum::client($c);
-            $response = $client->send($client->request(sha1(microtime()), 'listaddresses', $query ));
-            $r[$c]=$response->getRpcResult();
-        }
-
-        return $r;
+    public function to_bitcoin(int $satoshi) : string {
+        return bcdiv((string) $satoshi, (string) 1e8, 8);
     }
+
 
 }

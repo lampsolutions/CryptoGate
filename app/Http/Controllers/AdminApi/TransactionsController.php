@@ -15,16 +15,26 @@ class TransactionsController extends Controller
 {
 
     public function listtransactions(Request $request) {
+
+
         $invoice = Invoice::select(
             'invoices.*',
             'invoice_payments.currency as cp_currency',
             'invoice_payments.electrum_amount as cp_amount',
             'invoice_payments.created_at as cp_created_at',
-            'invoice_payments.electrum_address as cp_address'
+            'invoice_payments.electrum_address as cp_address',
+            DB::Raw('IFNULL(payment_address_allocations.pending, 0) as cp_pending'),
+            DB::Raw('IFNULL(payment_address_allocations.received, 0) as cp_received'),
+            DB::Raw('IFNULL(payment_address_allocations.status, invoices.status) as cp_status')
         )
             ->join("invoice_payments",function($join){
                 $join->on("invoices.payment_id","=","invoice_payments.id")
                 ->on("invoices.id","=","invoice_payments.invoice_id");
+            }
+        )
+            ->leftJoin("payment_address_allocations",function($join){
+                $join->on("invoice_payments.electrum_id","=","payment_address_allocations.id")
+                    ->on("payment_address_allocations.id","=","invoice_payments.electrum_id");
             }
         )->orderBy('created_at', 'desc');
 
@@ -40,7 +50,7 @@ class TransactionsController extends Controller
             });
         }
 
-        $invoice->where('status', '=', 'Paid');
+        //$invoice->where('payment_address_allocations.status', '=', 'partial');
 
         if(!empty($request->get('start'))) {
             $invoice->where('invoice_payments.created_at', '>=', date('Y-m-d 00:00:00', (int)$request->get('start')));
@@ -88,7 +98,7 @@ class TransactionsController extends Controller
                     $query_value = "%".(string)$request->get('query_value')."%";
                     break;
                 case 'amount':
-                    $query_key = 'amount';
+                    $query_key = 'invoices.amount';
                     $query_value = (double)$request->get('query_value');
                     break;
                 case 'camount':
@@ -124,6 +134,7 @@ class TransactionsController extends Controller
                     'email',
                     'amount',
                     'cp_amount',
+                    'cp_status',
                     'cp_currency',
                     'cp_address',
                     'cp_created_at',

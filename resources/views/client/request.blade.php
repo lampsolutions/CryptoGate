@@ -301,6 +301,11 @@
                 <label class="mdl-textfield__label" for="Telefon">Telefon (optional)</label>
             </div>
 
+            <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label">
+                <input class="mdl-textfield__input" type="text" name="Nachricht" id="Nachricht">
+                <label class="mdl-textfield__label" for="Nachricht">Hinterlasse eine Nachricht an uns (optional)</label>
+            </div>
+
             <hr/>
 
             <div class="btn-wrapper" style="    text-align: center; padding-bottom: 20px;">

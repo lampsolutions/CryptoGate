@@ -21,8 +21,8 @@ class CreateInvoicesTable extends Migration
             $table->string('first_name')->nullable();
             $table->string('last_name')->nullable();
             $table->enum('status', ['Open','Paid','Expired'])->default('Open');
-            $table->string('return_url')->nullable();
-            $table->string('callback_url')->nullable();
+            $table->string('return_url', 1024)->nullable();
+            $table->string('callback_url', 1024)->nullable();
             $table->dateTime('expires_at')->nullable();
             $table->timestamps();
         });

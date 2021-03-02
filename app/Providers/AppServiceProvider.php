@@ -3,6 +3,7 @@
 namespace App\Providers;
 
 use App\Lib\CryptoGateBranding;
+use App\Lib\CryptoGateFiat;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -16,6 +17,9 @@ class AppServiceProvider extends ServiceProvider
     {
         $branding = new CryptoGateBranding();
         \View::share('branding', $branding->getConfig());
+
+        $branding = new CryptoGateFiat();
+        \View::share('global_fiat_currency', $branding->getFiatCurrency());
     }
 
     /**

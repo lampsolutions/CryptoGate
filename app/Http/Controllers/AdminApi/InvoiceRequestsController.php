@@ -42,7 +42,7 @@ class InvoiceRequestsController extends Controller
         $data = $request->all();
 
         $data['enabled'] = 1;
-        $data['currency'] = 'EUR';
+        $data['currency'] = empty($data['currency']) ? 'EUR' : $data['currency'];
 
         $invoiceRequest = new InvoiceRequest();
         $invoiceRequest->uuid = \Webpatser\Uuid\Uuid::generate()->string;
