@@ -29,11 +29,19 @@ abstract class PaymentController extends Controller
             throw new \Exception('Incorrect currency');
         }
 
-        if(empty(env('ALLOW_OTHER_FIAT'))) {
-            $selectedFiatCurrency = env('FIAT_CURRENCY');
-            if(!empty($selectedFiatCurrency)) {
-                if($request->input('currency') != $selectedFiatCurrency) {
-                    throw new \Exception('Incorrect currency');
+        // Detect test payments on shopware / woocommerce endpoints
+        if( $request->input('currency') == "EUR" &&
+            $request->input('return_url') == "__not_set__" &&
+            in_array($this->endpoint, ['shopware', 'woocommerce'])
+        ) {
+            $isTestPayment = true;
+        } else { // Check for ALLOW_OTHER_FIAT
+            if(empty(env('ALLOW_OTHER_FIAT'))) {
+                $selectedFiatCurrency = env('FIAT_CURRENCY');
+                if(!empty($selectedFiatCurrency)) {
+                    if($request->input('currency') != $selectedFiatCurrency) {
+                        throw new \Exception('Incorrect currency');
+                    }
                 }
             }
         }
@@ -76,6 +84,23 @@ abstract class PaymentController extends Controller
                 ? $request->input('plugin_version')
                 : "unknown";
 
+        switch($this->endpoint) {
+            case 'shopware':
+                $invoice->sw_version =
+                    $request->input('shopware_version')
+                        ? $request->input('shopware_version')
+                        : "unknown";
+                break;
+            case 'woocommerce':
+                $invoice->sw_version =
+                    $request->input('wordpress_version')
+                        ? $request->input('wordpress_version')
+                        : "unknown";
+                break;
+            default:
+                $invoice->sw_version = 'unknown';
+                break;
+        }
 
         $invoice->save();
 

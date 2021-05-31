@@ -11,8 +11,64 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
-class TransactionsController extends Controller
-{
+class TransactionsController extends Controller {
+
+    public function listalltransactions(Request $request) {
+
+        $invoice = Invoice::select(
+            'invoices.*'
+        )->orderBy('created_at', 'desc');
+
+        $where = [];
+
+        if(!empty($request->get('search'))) {
+            $keyword=$request->get('search');
+            $invoice = $invoice->where(function ($q) use ($keyword) {
+                $q->where('first_name', 'LIKE', "%$keyword%")
+                    ->orWhere('last_name', 'LIKE', "%$keyword%")
+                    ->orWhere('memo', 'LIKE', "%$keyword%")
+                    ->orWhere('email', 'LIKE', "%$keyword%");
+            });
+        }
+
+        //$invoice->where('payment_address_allocations.status', '=', 'partial');
+
+        if(!empty($request->get('start'))) {
+            $invoice->where('created_at', '>=', date('Y-m-d 00:00:00', (int)$request->get('start')));
+        }
+
+        if(!empty($request->get('end'))) {
+            $invoice->where('created_at', '<=', date('Y-m-d 23:59:59', (int)$request->get('end')));
+        }
+
+        if(!empty($request->get('uuid'))) {
+            $invoice->where('uuid', '=', (String)$request->get('uuid'));
+        }
+
+
+        if(!empty($request->get('endpoints')) && $request->get('endpoints') != "-1") {
+            switch($request->get('endpoints')){
+                case "Shopware":
+                    $invoice->where('endpoint', '=', 'shopware');
+                    break;
+                case "Woocommerce":
+                    $invoice->where('endpoint', '=', 'woocommerce');
+                    break;
+                case "Spende mit Kontaktdaten":
+                    $invoice->where('endpoint', '=', 'donateForm')->whereNotNull('email');
+                    break;
+                case "Spende ohne Kontaktdaten":
+                    $invoice->where('endpoint', '=', 'donateForm')->whereNull('email');
+                    break;
+                case "Zahlungsformulare":
+                    $invoice->where('endpoint', '=', 'paymentForm');
+                    break;
+            }
+        }
+
+        $invoice=$invoice->paginate( (int)$request->get('paginate', 100) );
+        return $invoice;
+    }
 
     public function listtransactions(Request $request) {
 

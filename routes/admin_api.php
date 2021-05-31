@@ -11,6 +11,7 @@
 */
 Route::get('/balance',['uses' => 'AdminApi\ElectrumController@balance'])->name('admin.api.electrum.balance');
 Route::get('/listtransactions',['uses' => 'AdminApi\TransactionsController@listtransactions'])->name('admin.api.electrum.listtransactions');
+Route::get('/listalltransactions',['uses' => 'AdminApi\TransactionsController@listalltransactions'])->name('admin.api.electrum.listalltransactions');
 
 Route::get('/listrequests',['uses' => 'AdminApi\InvoiceRequestsController@list'])->name('admin.api.invoice.requests.list');
 Route::get('/createrequest',['uses' => 'AdminApi\InvoiceRequestsController@create'])->name('admin.api.invoice.requests.create');

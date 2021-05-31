@@ -43,9 +43,9 @@ class RequestFactory {
                 return new Response($id, null);
             }
 
-            throw new \Exception('Response missing error/params/result');
+            return new ErrorResponse('-333', 'Response missing error/params/result');
         }
 
-        throw new \Exception('Invalid JSON');
+        return new ErrorResponse('-444', 'Invalid JSON from Server');
     }
 }

@@ -69,6 +69,14 @@
             </svg>
         </p>
 
+        @if(isset($returnUrl))
+        <div class="btn-wrapper">
+            <a target="_top"  href="{{$returnUrl}}" class="mdl-button mdl-js-button mdl-button--raised mdl-button--colored">
+                Zurück zur Webseite
+            </a>
+        </div>
+        @endif
+
     </div>
 
 

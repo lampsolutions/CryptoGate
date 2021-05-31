@@ -18,22 +18,6 @@ class Daemon extends Command {
     protected $loop;
     protected $wallets;
 
-    protected $pingTimers = [
-        1 => false,
-        2 => false,
-        3 => false,
-        4 => false
-    ];
-
-    protected $timeoutTimers = [
-        1 => false,
-        2 => false,
-        3 => false,
-        4 => false
-    ];
-
-
-
     public function __construct() {
         parent::__construct();
         $this->wallets = new \SplObjectStorage();
@@ -64,18 +48,19 @@ class Daemon extends Command {
                         $prs->synchronize();
                     });
                 } catch (\Exception $exception) {
+                    Log::info('Exception in Wallet init', ['exceptionTrace' => $exception->getTraceAsString()]);
                 }
 
                 // Check Synchronization State after 600 seconds
                 $this->loop->addTimer(600, function() use($hdWalletService, $prs, $wallet, $client) {
                     if(!$hdWalletService->synchronized) {
-                        Log::info('Wallet Service not synchronized for Wallet, restarting Wallet Service', ['walletid' => $wallet->id]);
+                        Log::info('Wallet Service not synchronized for Wallet, closing connection', ['walletid' => $wallet->id]);
                         // Close connection and wait for Timeout Timer to cleanup
                         $client->getConnection()->close();
                     }
 
                     if(!$prs->synchronized) {
-                        Log::info('Payment Service not synchronized for Wallet, restarting Wallet Service', ['walletid' => $wallet->id]);
+                        Log::info('Payment Service not synchronized for Wallet, closing connection', ['walletid' => $wallet->id]);
                         // Close connection and wait for Timeout Timer to cleanup
                         $client->getConnection()->close();
                     }
@@ -84,53 +69,44 @@ class Daemon extends Command {
                 // Handle Timeouts
                 $this->loop->addPeriodicTimer(5, function(TimerInterface $timer) use($client, $wallet) {
                     if(!$client->getConnection()->isWritable() && !$client->getConnection()->isReadable() ) {
-                        Log::info('Closing Connection to Electrum Serrver for Wallet, restarting for Wallet', ['walletid' => $wallet->id]);
+                        Log::info('Closing Connection to Electrum Server for Wallet, restarting for Wallet', ['walletid' => $wallet->id]);
                         $this->loop->cancelTimer($timer);
 
                         // Delay reconnect for failover
-                        $this->loop->addTimer(rand(10, 30), function() use($wallet) {
+                        $delay = rand(10, 300);
+                        Log::info("Planing reconnect to Electrum Serrver for Wallet in ${delay} seconds, restarting for Wallet", ['walletid' => $wallet->id]);
+                        $this->loop->addTimer($delay, function() use($wallet) {
                             Log::info('Reconnecting now ...', ['walletid' => $wallet->id]);
                             $this->loadWalletService($wallet);
                         });
 
                         // Cleanup
                         try {
-                            if($this->pingTimers[$wallet->id]) {
-                                $this->loop->cancelTimer($this->pingTimers[$wallet->id]);
-                                $this->pingTimers[$wallet->id] = false;
-                            }
-
                             $client->getConnection()->close();
-
                         } catch (\Exception $e) {
-
+                            var_dump($e->getTraceAsString());
                         }
                     }
                 });
 
                 $this->loop->addPeriodicTimer(150, function(TimerInterface $timer) use($client, $wallet) {
-                    $this->pingTimers[$wallet->id] = $timer;
-                    Log::info('Pinging Electrum Server for Wallet', ['walletid' => $wallet->id]);
-                    $client->ping();
+                    if(!$client->getConnection()->isWritable() && !$client->getConnection()->isReadable() ) {
+                        Log::info('Pinging Electrum Server for Wallet failed, removing timer', ['walletid' => $wallet->id]);
+                        $this->loop->cancelTimer($timer);
+                    } else {
+                        Log::info('Pinging Electrum Server for Wallet', ['walletid' => $wallet->id]);
+                        $client->ping();
+                    }
                 });
 
                 $server = new StratumServer($hdWalletService, $this->loop);
             },
             function(\Exception $exception) use($client, $wallet) { // Handle Connection reset
-                Log::info('Failed Connecting to Electrum Server for Wallet. Delaying Connect 30 Seconds...', ['walletid' => $wallet->id]);
-
-                try {
-                    if($this->pingTimers[$wallet->id]) {
-                        $this->loop->cancelTimer($this->pingTimers[$wallet->id]);
-                        $this->pingTimers[$wallet->id] = false;
-                    }
-                } catch (\Exception $exception) {
-
-                }
-                $this->loop->addTimer(30, function() use($wallet) {
+                $delay = rand(10, 300);
+                Log::info("Failed Connecting to Electrum Server for Wallet. Delaying Connect ${delay} Seconds...", ['walletid' => $wallet->id]);
+                $this->loop->addTimer($delay, function() use($wallet) {
                     $this->loadWalletService($wallet);
                 });
-
             });
     }
 

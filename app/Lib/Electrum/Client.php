@@ -124,8 +124,8 @@ class Client {
         try {
             $response = $this->requestFactory->response($data);
         } catch (\Exception $e) {
-            Log::info('Received invalid data from electrum server', ['data' => $data]);
-            var_dump($e->getTraceAsString());
+            Log::info('Received invalid data from electrum server, closing connection', ['data' => $data]);
+            $this->connection->close();
             return false;
         }
 
@@ -157,7 +157,8 @@ class Client {
             }
 
             if($response instanceof ErrorResponse) {
-                throw new \RuntimeException($response->getMessage());
+                $this->connection->close();
+                Log::info('Closing connection due error on server side', ['code' => $response->getCode(), 'message' => $response->getMessage() ]);
             }
         }
     }

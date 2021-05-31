@@ -105,6 +105,7 @@ class PaymentsController extends Controller {
             }
 
             return view('client.paid', [
+                'returnUrl' => $this->getReturnUrl($invoice),
                 'invoice' => $invoice,
                 'title' => $invoice->memo,
                 'forwardQueryParam' => $this->forwardQueryParam()
@@ -146,6 +147,7 @@ class PaymentsController extends Controller {
 
 
             return view('client.paid', [
+                'returnUrl' => $this->getReturnUrl($invoice),
                 'invoice' => $invoice,
                 'title' => $invoice->memo,
                 'forwardQueryParam' => $this->forwardQueryParam()
